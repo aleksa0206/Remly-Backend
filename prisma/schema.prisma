@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Relationship {
+  Family
+  Friend
+  Partner
+  Colleague
+  Acquaintance
+  Other
+}
+
+enum MeetingType {
+  InPerson
+  Call
+  VideoCall
+  Message
+}
+
+enum MeetingStatus {
+  Planned
+  Done
+  Cancelled
+}
+
+model User {
+  id                     Int       @id @default(autoincrement())
+  failedLoginAttempts    Int       @default(0)
+  firstName              String
+  lastName               String
+  email                  String    @unique
+  passwordHash           String
+  twoFactorSecret        String?
+  resetPasswordTokenHash String?
+  resetPasswordExpiresAt DateTime?
+  lockedUntil            DateTime?
+  twoFactorEnabled       Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  contacts      Contact[]
+  meetings      Meeting[]
+}
+
+// A person the user keeps in touch with. `lastMetOn`, `nextPlannedOn` and `catchUpDueOn` are
+// derived from the contact's meetings and refreshed by `contactRepository.refreshMeetingDates`
+// in the same transaction as every meeting write, so lists can filter and sort on them.
+model Contact {
+  id               Int          @id @default(autoincrement())
+  userId           Int
+  firstName        String
+  lastName         String?
+  nickname         String?
+  email            String?
+  phone            String?
+  relationship     Relationship @default(Friend)
+  // Birthday without a year is common, so the parts are stored separately.
+  birthdayDay      Int?
+  birthdayMonth    Int?
+  birthdayYear     Int?
+  notes            String?      @db.Text
+  // "See them every N days"; null = no reminder.
+  catchUpEveryDays Int?
+  isFavorite       Boolean      @default(false)
+  isArchived       Boolean      @default(false)
+
+  lastMetOn     DateTime?
+  nextPlannedOn DateTime?
+  catchUpDueOn  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id])
+  meetings MeetingContact[]
+
+  @@index([userId, firstName])
+  @@index([userId, catchUpDueOn])
+}
+
+// A meeting that happened (Done) or is still ahead (Planned), with one or more contacts.
+// `date` is a calendar day stored as UTC midnight; `time` is an optional local "HH:MM".
+model Meeting {
+  id       Int           @id @default(autoincrement())
+  userId   Int
+  status   MeetingStatus @default(Done)
+  type     MeetingType   @default(InPerson)
+  date     DateTime
+  time     String?
+  title    String?
+  location String?
+  notes    String?       @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id])
+  contacts MeetingContact[]
+
+  @@index([userId, status, date])
+}
+
+model MeetingContact {
+  meetingId Int
+  contactId Int
+
+  meeting Meeting @relation(fields: [meetingId], references: [id])
+  contact Contact @relation(fields: [contactId], references: [id])
+
+  @@id([meetingId, contactId])
+  @@index([contactId])
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  revoked   Boolean  @default(false)
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model RateLimitEntry {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  count     Int      @default(1)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
