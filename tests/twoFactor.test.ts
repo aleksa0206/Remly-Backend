@@ -60,7 +60,7 @@ describe('2FA flow', () => {
     // 2FA on, the secret cannot be replaced.
     const tempToken = secondLoginRes.body.tempToken;
     for (const [method, path] of [
-      ['get', '/users'],
+      ['get', '/contacts'],
       ['get', '/auth/me'],
       ['post', '/auth/2fa/setup'],
     ] as const) {
