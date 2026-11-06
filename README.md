@@ -4,7 +4,8 @@
 
 REST API for Remly, a personal contacts app that keeps track of when you last saw someone, what is planned next and who you have not seen in a while. Every user's contacts and meetings are private to them.
 
-- Frontend: Remly-Frontend (Angular), expected next to this repository
+- Live: [remly.space](https://remly.space)
+- Frontend: [Remly-Frontend](https://github.com/aleksa0206/Remly-Frontend) (Angular)
 
 ## Features
 
