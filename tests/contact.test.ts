@@ -129,6 +129,28 @@ describe('Contacts', () => {
     expect(res.body.data.map((c: { firstName: string }) => c.firstName)).toEqual(['B', 'A']);
   });
 
+  it('filters by when the contact was last met', async () => {
+    const { user } = await createTestUser();
+    const recent = await createTestContact({ userId: user.id, firstName: 'Recent' });
+    const old = await createTestContact({ userId: user.id, firstName: 'Old' });
+    await createTestContact({ userId: user.id, firstName: 'Never' });
+    await prisma.contact.update({
+      where: { id: recent.id },
+      data: { lastMetOn: day('2026-11-01') },
+    });
+    await prisma.contact.update({ where: { id: old.id }, data: { lastMetOn: day('2026-05-01') } });
+    const list = (query: string) =>
+      request(app).get(`/contacts?${query}`).set('Authorization', bearer(user));
+    const names = async (query: string) =>
+      (await list(query)).body.data.map((c: { firstName: string }) => c.firstName);
+
+    expect(await names('metSince=2026-11-01')).toEqual(['Recent']);
+    expect(await names('notMetSince=2026-08-01')).toEqual(['Old']);
+    expect(await names('neverMet=true')).toEqual(['Never']);
+    expect(await names('neverMet=false')).toEqual(['Old', 'Recent']);
+    expect((await list('neverMet=true&metSince=2026-01-01')).status).toBe(400);
+  });
+
   it('deleting a contact deletes meetings only they were in, and keeps shared ones', async () => {
     const { user } = await createTestUser();
     const marko = await createTestContact({ userId: user.id, firstName: 'Marko' });

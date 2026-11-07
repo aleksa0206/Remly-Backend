@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import * as contactService from '../services/contactService';
+import { ValidationError } from '../errors/ValidationError';
 import { CONTACT_SORTS } from '../repositories/contactRepository';
 import { RELATIONSHIPS } from '../validation/contactSchemas';
 import { buildPaginationMeta, parsePagination } from '../utils/pagination';
@@ -20,7 +21,15 @@ export async function getAllContactsHandler(req: Request, res: Response, next: N
       // Archived contacts stay out of lists unless asked for.
       isArchived: parseOptionalBooleanQuery(req, 'isArchived') ?? false,
       dueBy: parseOptionalDateQuery(req, 'dueBy'),
+      metSince: parseOptionalDateQuery(req, 'metSince'),
+      notMetSince: parseOptionalDateQuery(req, 'notMetSince'),
+      neverMet: parseOptionalBooleanQuery(req, 'neverMet'),
     };
+    if (filters.neverMet !== undefined && (filters.metSince || filters.notMetSince)) {
+      throw new ValidationError('neverMet cannot be combined with metSince or notMetSince', [
+        { path: 'neverMet', message: 'cannot be combined with metSince or notMetSince' },
+      ]);
+    }
     const sort = parseOptionalEnumQuery(req, 'sort', CONTACT_SORTS) ?? 'name';
     const { data, total } = await contactService.getAllContacts(
       req.user!.userId,

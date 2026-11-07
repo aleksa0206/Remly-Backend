@@ -14,7 +14,20 @@ export type ContactFilters = {
   isArchived?: boolean | undefined;
   /** Contacts whose catch-up date is on or before this day. */
   dueBy?: Date | undefined;
+  metSince?: Date | undefined;
+  notMetSince?: Date | undefined;
+  neverMet?: boolean | undefined;
 };
+
+function lastMetWhere(filters: ContactFilters): Prisma.DateTimeNullableFilter | null | undefined {
+  if (filters.neverMet !== undefined) {
+    return filters.neverMet ? null : { not: null };
+  }
+  if (!filters.metSince && !filters.notMetSince) {
+    return undefined;
+  }
+  return compact({ gte: filters.metSince, lt: filters.notMetSince });
+}
 
 const ORDER_BY: Record<ContactSort, Prisma.ContactOrderByWithRelationInput[]> = {
   name: [{ firstName: 'asc' }, { lastName: 'asc' }, { id: 'asc' }],
@@ -34,6 +47,7 @@ export async function findAllContacts(
     isFavorite: filters.isFavorite,
     isArchived: filters.isArchived,
     catchUpDueOn: filters.dueBy ? { lte: filters.dueBy } : undefined,
+    lastMetOn: lastMetWhere(filters),
     OR: filters.search
       ? [
           { firstName: { contains: filters.search } },
